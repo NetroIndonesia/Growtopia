@@ -1,0 +1,13 @@
+{
+  "name": "itemsdat-codec",
+  "version": "1.0.0",
+  "description": "Growtopia items.dat decoder/encoder — supports all versions (v11-v26)",
+  "main": "index.js",
+  "scripts": {
+    "decode": "node decode.js",
+    "encode": "node encode.js",
+    "analyze": "node analyze.js"
+  },
+  "keywords": ["growtopia", "items.dat", "gtps", "decoder", "encoder"],
+  "license": "MIT"
+}

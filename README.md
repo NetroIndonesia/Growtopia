@@ -24,6 +24,7 @@ The client uses **ENet** (reliable UDP) for gameplay and **HTTPS** for the initi
 | 08 | [Game Systems](docs/08-game-systems.md) | Farming, locks, economy, trading, features |
 | 09 | [Dialog System](docs/09-dialog-system.md) | UI dialog markup language |
 | 10 | [Reference](docs/10-reference.md) | All packet types, actions, variants, commands |
+| 11 | [Advanced Protocol](docs/11-advanced-protocol.md) | Inventory format, tile extras, ping, object pickup |
 
 ---
 
@@ -95,6 +96,14 @@ Default Port 17091 UDP
 | Variant call does nothing | Index 0 is not a string (must be function name) |
 | Extended data missing | EXTENDED flag (0x08) not set in tank packet |
 | Byte corruption | Not using Little-Endian byte order |
+
+---
+
+## Tools
+
+| Tool | Description |
+|------|-------------|
+| [itemsdat-codec](tools/itemsdat-codec/) | items.dat decoder/encoder (Node.js, zero deps, supports v11-v26) |
 
 ---
 
