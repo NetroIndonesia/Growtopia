@@ -1,333 +1,101 @@
-# Growtopia Private Server (GTPS)
+﻿# Growtopia Private Server (GTPS) Documentation
 
-> Dokumentasi teknis untuk pengembangan Growtopia Private Server. Mencakup protokol, packet structure, game systems, dan implementasi.
+> Complete technical documentation for building a Growtopia Private Server from scratch.
 
----
+## What is GTPS?
 
-## Table of Contents
+Growtopia is a 2D MMO sandbox game (originally by Seth Robinson & Hamumu Software, now Ubisoft). A **Growtopia Private Server** emulates the official game protocol so the unmodified retail client connects to your custom server instead.
 
-- [Overview](#overview)
-- [Network Protocol](#network-protocol)
-- [Login Flow](#login-flow)
-- [Packet Structure](#packet-structure)
-- [Tank Packet](#tank-packet)
-- [Variant System](#variant-system)
-- [World System](#world-system)
-- [Player System](#player-system)
-- [Item Database](#item-database)
-- [Farming & Splicing](#farming--splicing)
-- [Lock System](#lock-system)
-- [Economy](#economy)
-- [Dialog System](#dialog-system)
-- [PlayMods](#playmods)
-- [Game Features](#game-features)
-- [Chat & Commands](#chat--commands)
-- [Sub-Server Transfer](#sub-server-transfer)
-- [Packet Reference](#packet-reference)
-- [Action Reference](#action-reference)
-- [Variant Reference](#variant-reference)
-- [Implementation Checklist](#implementation-checklist)
+The client uses **ENet** (reliable UDP) for gameplay and **HTTPS** for the initial login handshake. By redirecting DNS (or editing the hosts file), the client talks to your server transparently.
 
 ---
 
-## Overview
+## Documentation
 
-GTPS adalah server custom yang mengemulasi protokol Growtopia menggunakan **ENet** (reliable UDP). Client resmi Growtopia bisa langsung connect tanpa modifikasi — cukup redirect DNS/hosts file ke IP server.
-
-**Stack:**
-- Transport: ENet (UDP) dengan CRC32 + Range Coder
-- Login: HTTPS POST (server_data.php)
-- Data: Binary protocol (tank packets) + pipe-delimited text
-- Item DB: items.dat binary file (~5MB)
-
----
-
-## Network Protocol
-
-### ENet Configuration
-
-```
-Port            : 17091 (UDP)
-Channels        : 2
-Compression     : Range Coder (WAJIB)
-Checksum        : CRC32 (WAJIB)
-Delivery        : ENET_PACKET_FLAG_RELIABLE
-Max Packet      : 16384 bytes
-Custom Flag     : usingNewPacketForServer
-```
-
-> Tanpa CRC32 + Range Coder, client akan langsung disconnect.
-
-### Message Types
-
-```cpp
-0  UNKNOWN
-1  SERVER_HELLO          // server kirim saat client connect
-2  GENERIC_TEXT          // login data, chat input
-3  GAME_MESSAGE          // action|value format
-4  GAME_PACKET           // binary tank packet (56B header)
-5  ERROR
-6  TRACK
-7  CLIENT_LOG_REQUEST
-8  CLIENT_LOG_RESPONSE
-```
-
-Format packet: [4 byte type][payload]
-
-- Type 2/3: payload = null-terminated string
-- Type 4: payload = 56-byte struct + optional extended data
+| # | File | Contents |
+|---|------|----------|
+| 01 | [Protocol](docs/01-protocol.md) | ENet configuration, message types, packet format |
+| 02 | [Login Flow](docs/02-login-flow.md) | Full connection sequence from HTTP to world entry |
+| 03 | [Tank Packet](docs/03-tank-packet.md) | 56-byte binary packet layout, flags, usage |
+| 04 | [Variant System](docs/04-variant-system.md) | Server-to-client RPC mechanism |
+| 05 | [World System](docs/05-world-system.md) | World structure, generation, binary format |
+| 06 | [Player System](docs/06-player-system.md) | Player data, inventory, clothing, roles |
+| 07 | [Item Database](docs/07-item-database.md) | items.dat binary format, encryption, types |
+| 08 | [Game Systems](docs/08-game-systems.md) | Farming, locks, economy, trading, features |
+| 09 | [Dialog System](docs/09-dialog-system.md) | UI dialog markup language |
+| 10 | [Reference](docs/10-reference.md) | All packet types, actions, variants, commands |
 
 ---
 
-## Login Flow
+## Architecture Overview
 
 ```
-Client                              Server
-  |                                   |
-  |--- HTTPS POST server_data.php --->|
-  |<-- server|ip\nport|17091 ---------|
-  |                                   |
-  |--- ENet Connect ----------------->|
-  |<-- SERVER_HELLO ------------------|
-  |--- GENERIC_TEXT (login data) ---->|
-  |<-- OnSuperMainStart (variant) ----|
-  |--- action|enter_game ------------>|
-  |<-- World Select Menu -------------|
-  |--- action|join_request ---------->|
-  |<-- SEND_MAP_DATA ----------------|
-  |<-- OnSpawn (semua player) --------|
-  |<-- SEND_INVENTORY_STATE ----------|
-  |                                   |
-  |========= Gameplay Loop ===========|
+                    +-------------------+
+                    |  Growtopia Client |
+                    +--------+----------+
+                             |
+              +--------------+--------------+
+              |                             |
+     HTTPS POST (login)            ENet UDP (gameplay)
+              |                             |
+              v                             v
+   +----------+----------+      +-----------+-----------+
+   | HTTP Server          |      | Game Server            |
+   | /growtopia/          |      | Port 17091             |
+   | server_data.php      |      | ENet + CRC32 +         |
+   | Returns IP:port      |      | Range Coder            |
+   +----------------------+      +------------------------+
+                                            |
+                                            v
+                                 +----------+----------+
+                                 | Database             |
+                                 | (players, worlds)    |
+                                 +---------------------+
 ```
 
-### server_data.php Response
+## Tech Stack
 
 ```
-server|127.0.0.1
-port|17091
-type|1
-type2|1
-meta|encrypted_data
-RTENDMARKERBS1001
+Transport    ENet (reliable UDP) with CRC32 checksum + Range Coder compression
+Login        HTTPS POST to /growtopia/server_data.php
+Game Data    Binary protocol (56-byte tank packets) + pipe-delimited text
+Item DB      items.dat (~5MB binary, served once, cached by client)
+Default Port 17091 UDP
 ```
 
-### Login Data (Client -> Server)
-
-Field penting yang dikirim client:
+## Minimum Viable Server (Checklist)
 
 ```
-tankIDName|GrowID           // username
-tankIDPass|password         // password
-requestedName|Guest         // nama guest (jika belum punya GrowID)
-protocol|225                // versi protokol
-game_version|5.39           // versi client
-country|id                  // negara
-platformID|0,1,1            // platform (Win/iOS/Android)
-lmode|0                     // login mode (0=normal, 2=transfer)
-rid|...                     // device ID (32 hex)
-mac|...                     // MAC address
-wk|...                      // Windows key
-hash|...                    // hardware hash
-hash2|...                   // hardware hash 2
-meta|win/hash/id            // device metadata
+[x] HTTP endpoint returning server IP + port
+[x] ENet host with CRC32 + Range Coder enabled
+[x] Send SERVER_HELLO on client connect
+[x] Parse client login data (GENERIC_TEXT)
+[x] Validate or create player account
+[x] Send OnSuperMainStart variant (items.dat hash, CDN, settings)
+[x] Serve items.dat binary (SEND_ITEM_DATABASE_DATA)
+[x] Handle action|enter_game
+[x] Handle action|join_request -> generate world -> send SEND_MAP_DATA
+[x] Send OnSpawn for all players in world
+[x] Send SEND_INVENTORY_STATE
+[x] Handle PACKET_STATE (movement) and broadcast to others
+[x] Handle TILE_CHANGE_REQUEST (place/break) and broadcast
+[x] Handle disconnect -> save player, broadcast OnRemove
 ```
+
+## Common Mistakes
+
+| Symptom | Cause |
+|---------|-------|
+| Client disconnects immediately | CRC32 or Range Coder not enabled |
+| Client ignores packets | Packet exceeds 16384 bytes |
+| Text packet fails | Missing null terminator |
+| Client re-downloads items.dat every login | Hash mismatch in OnSuperMainStart |
+| Players invisible to each other | net_id not unique per world |
+| Player appears at wrong position | Using tile coords instead of pixels (pixel = tile * 32) |
+| Variant call does nothing | Index 0 is not a string (must be function name) |
+| Extended data missing | EXTENDED flag (0x08) not set in tank packet |
+| Byte corruption | Not using Little-Endian byte order |
 
 ---
 
-## Packet Structure
-
-### Text Packet (Type 2 & 3)
-
-```
-[uint32 type][null-terminated string]
-```
-
-String menggunakan format key|value\n:
-```
-action|join_request\nname|WORLDNAME\ninvitedWorld|0
-```
-
-### Game Packet (Type 4)
-
-```
-[uint32 type=4][56-byte GameUpdatePacket][extended data jika flag EXTENDED]
-```
-
----
-
-## Tank Packet
-
-56 bytes, packed struct. Ini adalah format binary utama untuk semua game communication.
-
-```
-Offset  Size  Field            Keterangan
-------  ----  -----            ----------
-0       1     type             packet sub-type (0-46)
-1       1     pad1             punch_id / build_range
-2       1     pad2             punch_range
-3       1     pad3             anim_type
-4       4     net_id           player network ID
-8       4     secondary_id     target / item count
-12      4     flags            state bitfield
-16      4     float1           water_speed
-20      4     int_data         item_id / planting_tree
-24      4     pos_x            position X (float, PIXELS)
-28      4     pos_y            position Y (float, PIXELS)
-32      4     speed_x          velocity X (float)
-36      4     speed_y          velocity Y (float)
-40      4     float2           particle_rotation
-44      4     tile_x           target tile X (int)
-48      4     tile_y           target tile Y (int)
-52      4     data_size        extended data length
-```
-
-> Posisi dalam PIXEL. Konversi: 	ile = pixel / 32
-
-### Flags Penting
-
-```
-0x08     EXTENDED         ada data setelah 56-byte header
-0x10     ROTATE_LEFT      player hadap kiri
-0x20     ON_SOLID         di atas ground
-0x80     ON_JUMP          lompat
-0x100    ON_KILLED        mati
-0x200    ON_PUNCHED       sedang punch
-0x400    ON_PLACED        sedang place block
-0x2000   ON_RESPAWNED     baru respawn
-0x4000   ON_COLLECT       ambil dropped item
-```
-
----
-
-## Variant System
-
-Mekanisme RPC utama server->client. Dikirim sebagai tank packet type=1 dengan flag EXTENDED.
-
-### Serialization Format
-
-```
-[1B count]
-per variant:
-  [1B index]    // 0 = nama fungsi
-  [1B type]     // tipe data
-  [data]        // payload
-```
-
-### Variant Types
-
-```
-1 = FLOAT      (4B)
-2 = STRING     (4B length + chars)
-3 = VEC2       (8B, 2x float)
-4 = VEC3       (12B, 3x float)
-5 = UINT       (4B)
-9 = INT        (4B)
-```
-
-### Contoh: Kirim OnConsoleMessage
-
-```
-count: 2
-[0] type=STRING value="OnConsoleMessage"
-[1] type=STRING value="Hello 2World`!"
-```
-
-Dibungkus dalam tank packet:
-```
-tank.type = 1 (CALL_FUNCTION)
-tank.net_id = -1 (broadcast) atau target net_id
-tank.flags = 0x08 (EXTENDED)
-tank.data_size = variant_bytes.length
-```
-
----
-
-## World System
-
-### Specs
-
-```
-Size        : 100 x 60 tiles (default)
-Tile Size   : 32 x 32 pixels
-Total Pixels: 3200 x 1920
-Version     : 0x14 (20)
-```
-
-### Generation (Normal World)
-
-```
-Row 0-23  : Air (kosong)
-Row 24    : Bedrock + Main Door (spawn)
-Row 25-35 : Dirt + Cave Background
-Row 36-53 : Rock + Cave Background
-Row 54-59 : Bedrock (indestructible)
-```
-
-Tipe lain: Beach, Mars, Desert, Jungle, Underwater, Cave, Sky, dll.
-
-### World Binary Format (SEND_MAP_DATA)
-
-```
-[uint16 version]
-[uint32 reserved]
-[uint16 name_len][chars name]
-[uint32 width][uint32 height][uint32 tile_count]
-
-per tile:
-  [uint16 foreground][uint16 background]
-  [uint16 parent][uint16 flags]
-  [tile_extra jika flags & HAS_EXTRA]
-
-[uint32 object_count][uint32 last_object_id]
-per object:
-  [uint16 item_id][float x][float y]
-  [uint8 count][uint8 flags][uint32 object_id]
-
-[uint16 base_weather][uint16 current_weather]
-```
-
-### World Flags
-
-```
-JAMMED            tersembunyi dari search
-NUKED             world di-reset
-PUNCH_JAMMER      ga bisa punch player
-ZOMBIE_JAMMER     zombie ga nyebar
-ANTI_GRAVITY      gravitasi terbalik
-MINI_MOD          ga bisa drop item
-NOLOCKS           ga bisa pasang lock
-```
-
----
-
-## Player System
-
-### Character Properties
-
-```
-Speed           : 260.0
-Gravity         : 1000.0
-Acceleration    : 1000.0
-Punch Range     : 128 px (4 tiles)
-Build Range     : 128 px (4 tiles)
-Punch Strength  : 350.0 (knockback)
-Water Speed     : 150.0
-```
-
-### Clothing Slots (10)
-
-```
-0 Hair    1 Shirt    2 Pants    3 Shoes    4 Face
-5 Hand    6 Back     7 Hat      8 Chest    9 Ances
-```
-
-### Inventory
-
-- Default: 16 slots, max: 596 slots
-- Per slot: item_id + count (max 200) + flags
-- Starter: Fist + Wrench (permanent)
-
-### Skin & Colors
-
-- Skin color: ARGB uint32 (default 
+> Built from reverse-engineering analysis of NiceTopia, GTServer/HappyPS, GTopia, and GTProxy-fix.
