@@ -167,15 +167,16 @@ You can still edit all known fields (name, rarity, etc.) and the unknown bytes s
 | 17 | 4.53 | ✓ Full support |
 | 19 | 4.71 | ✓ Full support |
 | 21 | 5.11 | ✓ Full support |
-| 25 | 5.46 | ✓ Full support |
-| 26 | 5.47 | ✓ Full support |
-| 27+ | Future | ✓ Partial (known fields parsed, unknown preserved as base64) |
+| 22 | — | ✓ Full support (last fully decoded) |
+| 23-26 | — | ✓ Partial (known fields parsed, extra bytes preserved) |
+| 27+ | Future | ✓ Partial (same as above — auto-detects new bytes) |
 
 ## Tested
 
-- ✓ Decode v21 items.dat (30,001 items, 7.39 MB) — 0 bytes remaining
-- ✓ Roundtrip encode produces byte-identical file (hash: 3528872324)
-- ✓ Unknown version detection and boundary probing
+- ✓ Decode v21 items.dat (30,001 items, 7.39 MB) — 0 bytes remaining, roundtrip identical
+- ✓ Decode v26 items.dat (16,150 items, 5.36 MB) — 0 bytes remaining, roundtrip identical
+- ✓ Unknown version detection: v26 correctly reports 12 extra bytes per item beyond v22 fields
+- ✓ All editable fields (name, rarity, growTime, etc.) work for any version
 
 ## Notes
 
