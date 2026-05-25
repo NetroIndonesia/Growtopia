@@ -57,6 +57,14 @@ struct GameUpdatePacket {
 // sizeof(GameUpdatePacket) == 56
 ```
 
+> **Variant convention.** Some references (Gurotopia `state` struct in
+> `database/peer.hpp`) treat the first 4 bytes as a single `int32 type` and
+> pack context-dependent metadata into the upper 24 bits, e.g.
+> `(count << 24) | 0x0d` for `MODIFY_ITEM_INVENTORY` or
+> `(value << 24) | 0x08` for `TILE_APPLY_DAMAGE`. Both layouts are wire
+> compatible because the client reads byte 0 as the packet type and ignores
+> the rest of `pad1..pad3` unless explicitly documented.
+
 ## Flags Bitfield
 
 | Bit | Hex | Name | Meaning |

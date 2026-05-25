@@ -83,41 +83,50 @@ Each slot holds one item_id (uint16). Equipping an item may grant PlayMods that 
 
 ### Sending Clothing Updates
 
-Use the `OnSetClothing` variant. The clothing data is packed into vec3 values:
+Use the `OnSetClothing` variant. The clothing data is packed into vec3 values (item IDs cast to float):
 
 ```
 Variant[0] = "OnSetClothing"
-Variant[1] = vec3(hair, shirt, pants)       // as floats
+Variant[1] = vec3(hair, shirt, pants)        // as floats
 Variant[2] = vec3(shoes, face, hand)
 Variant[3] = vec3(back, hat, chest)
-Variant[4] = skin_color (int)
-Variant[5] = vec3(ances, 0, 0)
+Variant[4] = skin_color (uint32 ARGB)
+Variant[5] = vec3(ances, invis_flag, 0)      // protocol >= 32; older builds use vec3(invis, 0, 0)
 ```
+
+Send with `net_id` set to the target player's netID. Broadcast to every peer in the world when someone changes clothing.
 
 ## Inventory
 
 ### Structure
 
 ```
-Default capacity    16 slots
-Maximum capacity    596 slots (upgraded via gem store, +10 per purchase)
-Items per slot      item_id (uint16) + count (uint16, max 200) + flags (uint8)
-Permanent items     Fist (ID 0) + Wrench (ID 1) — always present, cannot be removed
+Default capacity    16 slots (Gurotopia default; NiceTopia starts at 16, Windsverse at 26)
+Maximum capacity    476 slots (Windsverse cap) or 596 slots (some forks)
+Items per slot      item_id (uint16) + count (uint8) + flags (uint8)
+Permanent items     Fist (ID 0 in older builds, 18 in retail) + Wrench (ID 1 / 32) — always present
 ```
 
 ### Binary Format (SEND_INVENTORY_STATE)
 
-Sent as tank packet type 9 with EXTENDED flag:
+Sent as tank packet type 9 with EXTENDED flag. Verified against Windsverse `Player::SendInventoryState` and Gurotopia `send_inventory_state`.
 
 ```
-uint8     version
+uint8     version             (0x01)
 uint32    backpack_size       (total slot capacity)
-uint16    item_count          (how many items currently held)
-[per item:]
+uint32    item_count          (how many items currently held)
+[per item, 4 bytes:]
   uint16  item_id
-  uint16  count
-  uint8   flags              (bit 0 = equipped in clothing slot)
+  uint8   count               (max 200; if you need >255, split into multiple tank-13 modify calls)
+  uint8   flags               (bit 0 = equipped in clothing slot)
 ```
+
+Total extended payload size: `9 + (4 * item_count)` bytes.
+
+> Some references store backpack/item_count as **big-endian** (Gurotopia uses
+> `std::byteswap`). Most retail clients accept either; the safe path is plain
+> little-endian like everything else in the protocol. If the client refuses to
+> render your inventory, try byteswapping the two `uint32` headers.
 
 ### Modifying Inventory
 

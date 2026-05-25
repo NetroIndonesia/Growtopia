@@ -125,25 +125,68 @@ You can still edit all known fields (name, rarity, etc.) and the unknown bytes s
 
 ```json
 {
-  "version": 21,
+  "version": 26,
   "itemCount": 30001,
   "items": [
     {
-      "id": 0,
+      "itemId": 0,
       "name": "Fist",
-      "flags": 0,
-      "type": 0,
-      "material": 0,
-      "textureFile": "tiles_page1.rttex",
+      "editableType": 0,
+      "itemCategory": 0,
+      "actionType": 0,
+      "hitSoundType": 0,
+      "texture": "tiles_page1.rttex",
+      "textureHash": 0,
+      "itemKind": 0,
+      "val1": 0,
       "textureX": 0,
       "textureY": 0,
+      "spreadType": 0,
+      "isStripeyWallpaper": 0,
       "collisionType": 0,
-      "hp": 0,
+      "breakHits": 0,
+      "dropChance": 0,
+      "clothingType": 0,
       "rarity": 999,
-      "maxCanHold": 200,
+      "maxAmount": 200,
+      "extraFile": "",
+      "extraFileHash": 0,
+      "audioVolume": 0,
+      "petName": "",
+      "petPrefix": "",
+      "petSuffix": "",
+      "petAbility": "",
+      "seedBase": 0,
+      "seedOverlay": 0,
+      "treeBase": 0,
+      "treeLeaves": 0,
+      "seedColorA": 0, "seedColorR": 0, "seedColorG": 0, "seedColorB": 0,
+      "seedOverlayColorA": 0, "seedOverlayColorR": 0, "seedOverlayColorG": 0, "seedOverlayColorB": 0,
       "growTime": 31,
-      "bodyPart": 0,
-      ...
+      "val2": 0,
+      "isRayman": 0,
+      "extraOptions": "",
+      "texture2": "",
+      "extraOptions2": "",
+      "dataPosition80": "00000000...",
+      "punchOptions": "",
+      "dataVersion12": "00000000...",
+      "intVersion13": 0,
+      "intVersion14": 0,
+      "dataVersion15": "00000000...",
+      "strVersion15": "",
+      "strVersion16": "",
+      "intVersion17": 0,
+      "intVersion18": 0,
+      "dataVersion19": "00000000...",
+      "intVersion21": 0,
+      "strVersion22": "",
+      "spliceSeed1": 0,
+      "spliceSeed2": 0,
+      "slipperyType": 0,
+      "strVersion25": "",
+      "intVersion25": 0,
+      "byteVersion26": 0
     }
   ],
   "_meta": {
@@ -154,29 +197,35 @@ You can still edit all known fields (name, rarity, etc.) and the unknown bytes s
 }
 ```
 
+Fields with a `Version##` suffix correspond to the items.dat revision that introduced them — they are only present in the JSON when the source file is at that version or newer. Encoding writes them only when `version >= threshold`, so old files stay binary-compatible.
+
 ## Version Support
 
 | Version | Game Version | Status |
 |---------|-------------|--------|
-| 11 | 2.988 | ✓ Full support |
-| 12 | 3.45 | ✓ Full support |
-| 13 | 3.62 | ✓ Full support |
-| 14 | 3.74 | ✓ Full support |
-| 15 | 4.19 | ✓ Full support |
-| 16 | 4.44 | ✓ Full support |
-| 17 | 4.53 | ✓ Full support |
-| 19 | 4.71 | ✓ Full support |
-| 21 | 5.11 | ✓ Full support |
-| 22 | — | ✓ Full support (last fully decoded) |
-| 23-26 | — | ✓ Partial (known fields parsed, extra bytes preserved) |
-| 27+ | Future | ✓ Partial (same as above — auto-detects new bytes) |
+| 11 | 2.988 | Full support |
+| 12 | 3.45 | Full support |
+| 13 | 3.62 | Full support |
+| 14 | 3.74 | Full support |
+| 15 | 4.19 | Full support |
+| 16 | 4.44 | Full support |
+| 17 | 4.53 | Full support |
+| 18 | 4.61 | Full support |
+| 19 | 4.71 | Full support |
+| 21 | 5.11 | Full support |
+| 22 | 5.20 | Full support (description added) |
+| 23 | 5.30 | Full support (splice seeds added) |
+| 24 | 5.40 | Full support (slipperyType added) |
+| 25 | 5.46 | Full support (player punch FX + reserved int) |
+| 26 | 5.47 | Full support (extra byte added) |
+| 27+ | Future | Partial (known fields parsed, extra bytes preserved as `_unknownTrailingData`) |
 
 ## Tested
 
-- ✓ Decode v21 items.dat (30,001 items, 7.39 MB) — 0 bytes remaining, roundtrip identical
-- ✓ Decode v26 items.dat (16,150 items, 5.36 MB) — 0 bytes remaining, roundtrip identical
-- ✓ Unknown version detection: v26 correctly reports 12 extra bytes per item beyond v22 fields
-- ✓ All editable fields (name, rarity, growTime, etc.) work for any version
+- Decode v18 items.dat (21,700 items, 5.27 MB) — roundtrip byte-identical
+- Decode v21 items.dat (30,001 items, 7.39 MB) — roundtrip byte-identical
+- Synthetic v26 sample with all v22–v26 fields populated — roundtrip byte-identical
+- Unknown version v27 with trailing payload — preserved verbatim via `_unknownTrailingData`
 
 ## Notes
 

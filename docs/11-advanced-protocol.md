@@ -6,7 +6,7 @@ Deep technical details for inventory serialization, clothing packets, tile extra
 
 ## Inventory Binary Format (SEND_INVENTORY_STATE)
 
-Sent as tank packet type 9 with EXTENDED flag.
+Sent as tank packet type 9 with EXTENDED flag. Verified against Windsverse `Player::SendInventoryState` (`Player.cpp:587`) and Gurotopia `send_inventory_state` (`peer.cpp:227`).
 
 ### Binary Layout
 
@@ -14,20 +14,22 @@ Sent as tank packet type 9 with EXTENDED flag.
 Offset  Size    Field
 0       1       Version (0x01)
 1       4       Backpack size (uint32, total slot capacity)
-5       2       Item count (uint16, how many items currently held)
-7       4*N     Items array (4 bytes per item):
+5       4       Item count (uint32, how many items currently held)
+9       4*N     Items array (4 bytes per item):
   +0      2       Item ID (uint16)
   +2      1       Count (uint8, max 200)
   +3      1       Flags (uint8, bit 0 = equipped/worn)
 ```
 
-**Total extended data size:** `7 + (4 * item_count)` bytes
+**Total extended data size:** `9 + (4 * item_count)` bytes
 
 ### Notes
 
-- Max inventory display: 476 items (NiceTopia cap) or 596 slots (GTServer)
-- Fist (0) and Wrench (1) are always present, cannot be removed
-- Flags byte: `0x01` = item is currently equipped in a clothing slot
+- Max inventory display: 476 items (Windsverse cap) or 596 slots (some forks).
+- Fist (ID 0 / 18 retail) and Wrench (ID 1 / 32 retail) are always present, cannot be removed.
+- Flags byte: `0x01` = item is currently equipped in a clothing slot.
+- Gurotopia stores `slot_size` and `item_count` as **big-endian** via `std::byteswap`. Most clients accept either — start with little-endian and only swap if the inventory pane refuses to render.
+- For changing single items mid-game, prefer tank packet type 13 (`MODIFY_ITEM_INVENTORY`) over resending the entire inventory state.
 
 ---
 

@@ -28,6 +28,25 @@ The client uses **ENet** (reliable UDP) for gameplay and **HTTPS** for the initi
 
 ---
 
+## Reference Implementations
+
+The protocol facts and binary layouts in these docs are cross-referenced
+against four working private servers. When something is documented as
+"verified", it means at least two of these sources agree:
+
+| Server | Path | Strength |
+|--------|------|----------|
+| **NiceTopia** | `D:\NiceTopia-Project2\Source` (this repo) | Largest fork (~800KB Source.cpp); covers most edge cases |
+| **Gurotopia** | `D:\artefak\Gurotopia-master` | Newest reference (Dec 2025); items.dat v25/v26, modern dialog builder |
+| **Windsverse** | `D:\artefak\WINDSVERSE\WINDSVERSE\source` | Tightly written `ItemsManager`, classic inventory packing |
+| **GTServer / HappyPS** | `D:\GTServer\GTServer` | Compact ENet wrapper, useful for verifying ENet config |
+
+For items.dat field-by-field analysis, see also `tools/itemsdat-codec/` (this
+repo) which has been validated for round-trip identity on v18 and v21 files
+and synthesizes correct v22-v26 output.
+
+---
+
 ## Architecture Overview
 
 ```
@@ -41,16 +60,16 @@ The client uses **ENet** (reliable UDP) for gameplay and **HTTPS** for the initi
               |                             |
               v                             v
    +----------+----------+      +-----------+-----------+
-   | HTTP Server          |      | Game Server            |
-   | /growtopia/          |      | Port 17091             |
-   | server_data.php      |      | ENet + CRC32 +         |
-   | Returns IP:port      |      | Range Coder            |
-   +----------------------+      +------------------------+
+   | HTTP Server         |      | Game Server           |
+   | /growtopia/         |      | Port 17091            |
+   | server_data.php     |      | ENet + CRC32 +        |
+   | Returns IP:port     |      | Range Coder           |
+   +---------------------+      +-----------------------+
                                             |
                                             v
                                  +----------+----------+
-                                 | Database             |
-                                 | (players, worlds)    |
+                                 | Database            |
+                                 | (players, worlds)   |
                                  +---------------------+
 ```
 
@@ -60,7 +79,7 @@ The client uses **ENet** (reliable UDP) for gameplay and **HTTPS** for the initi
 Transport    ENet (reliable UDP) with CRC32 checksum + Range Coder compression
 Login        HTTPS POST to /growtopia/server_data.php
 Game Data    Binary protocol (56-byte tank packets) + pipe-delimited text
-Item DB      items.dat (~5MB binary, served once, cached by client)
+Item DB      items.dat (~5-8 MB binary, served once, cached by client)
 Default Port 17091 UDP
 ```
 
@@ -68,7 +87,7 @@ Default Port 17091 UDP
 
 ```
 [x] HTTP endpoint returning server IP + port
-[x] ENet host with CRC32 + Range Coder enabled
+[x] ENet host with CRC32 + Range Coder + usingNewPacketForServer enabled
 [x] Send SERVER_HELLO on client connect
 [x] Parse client login data (GENERIC_TEXT)
 [x] Validate or create player account
@@ -76,7 +95,7 @@ Default Port 17091 UDP
 [x] Serve items.dat binary (SEND_ITEM_DATABASE_DATA)
 [x] Handle action|enter_game
 [x] Handle action|join_request -> generate world -> send SEND_MAP_DATA
-[x] Send OnSpawn for all players in world
+[x] Send OnSpawn for all players in world (with type|local for the joiner)
 [x] Send SEND_INVENTORY_STATE
 [x] Handle PACKET_STATE (movement) and broadcast to others
 [x] Handle TILE_CHANGE_REQUEST (place/break) and broadcast
@@ -87,14 +106,15 @@ Default Port 17091 UDP
 
 | Symptom | Cause |
 |---------|-------|
-| Client disconnects immediately | CRC32 or Range Coder not enabled |
-| Client ignores packets | Packet exceeds 16384 bytes |
+| Client disconnects immediately | CRC32 or Range Coder not enabled, or `usingNewPacketForServer` not set |
+| Client ignores packets | Packet exceeds 16384 bytes header limit |
 | Text packet fails | Missing null terminator |
 | Client re-downloads items.dat every login | Hash mismatch in OnSuperMainStart |
 | Players invisible to each other | net_id not unique per world |
 | Player appears at wrong position | Using tile coords instead of pixels (pixel = tile * 32) |
 | Variant call does nothing | Index 0 is not a string (must be function name) |
 | Extended data missing | EXTENDED flag (0x08) not set in tank packet |
+| Inventory pane empty | Wrong header — `item_count` is uint32, not uint16 |
 | Byte corruption | Not using Little-Endian byte order |
 
 ---
@@ -103,8 +123,10 @@ Default Port 17091 UDP
 
 | Tool | Description |
 |------|-------------|
-| [itemsdat-codec](tools/itemsdat-codec/) | items.dat decoder/encoder (Node.js, zero deps, supports v11-v26) |
+| [itemsdat-codec](tools/itemsdat-codec/) | items.dat decoder/encoder (Node.js, zero deps, full v11–v26 support, future-proof v27+ via `_unknownTrailingData`) |
 
 ---
 
-> Built from reverse-engineering analysis of NiceTopia, GTServer/HappyPS, GTopia, and GTProxy-fix.
+> Built from reverse-engineering analysis of NiceTopia, GTServer/HappyPS,
+> Gurotopia, Windsverse, and GTProxy-fix. Field offsets and binary layouts
+> were validated by parser round-trip testing where possible.

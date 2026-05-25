@@ -101,27 +101,30 @@ uint16    name_length
 char[]    world_name
 uint32    width               (100)
 uint32    height              (60)
-uint32    tile_count          (6000)
+uint16    tile_count          (6000)
+uint8[7]  reserved/padding
 
-=== TILES (repeated 6000 times) ===
+=== TILES (repeated tile_count times) ===
 uint16    foreground_id
 uint16    background_id
 uint16    parent_index
-uint16    flags
-[if flags & 0x01: tile extra data, format varies by item type]
+uint8     flags_low           (block.state[2] in Gurotopia — public/toggle/etc.)
+uint8     flags_high          (block.state[3] — fire, glued, etc.)
+[if HAS_EXTRA_DATA: tile extra payload, format varies by item type]
 
-=== DROPPED OBJECTS ===
+=== DROPPED OBJECTS HEADER ===
+uint8[12] reserved/padding
+uint32    last_object_uid     (counter for assigning new UIDs)
 uint32    object_count
-uint32    last_object_id      (counter for assigning new IDs)
-[per object:]
-  uint16  item_id
-  float   pos_x               (pixels)
-  float   pos_y               (pixels)
-  uint8   count
-  uint8   flags
-  uint32  object_id           (unique within this world)
 
-=== WEATHER ===
+=== Per Object (16 bytes each) ===
+uint16    item_id
+float     pos_x               (pixels)
+float     pos_y               (pixels)
+uint16    count               (some implementations split this as uint8 count + uint8 flags)
+uint32    object_id           (unique within this world)
+
+=== WEATHER (newer versions) ===
 uint16    base_weather_id
 uint16    current_weather_id
 
@@ -130,6 +133,11 @@ uint32    owner_user_id       (0 if no owner)
 uint32    world_flags
 int32     main_lock_index     (-1 if no world lock placed)
 ```
+
+> The 7-byte and 12-byte padding regions exist in the wire format and are
+> reproduced in every reference implementation we checked (Gurotopia
+> `action::join_request`, Windsverse map serializer). Their exact meaning is
+> client-specific; the safest behaviour is to leave them zeroed.
 
 ## World Objects (Dropped Items)
 

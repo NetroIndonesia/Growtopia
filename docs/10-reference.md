@@ -164,31 +164,50 @@ setSkin                 Change skin color
 
 ## Chat Commands
 
-### Player (level 0)
+> **Note:** chat commands are not part of the Growtopia protocol — they are
+> server-defined `action|input` text handlers. Different GTPS implementations
+> ship different sets. The lists below combine the canonical retail-era set
+> (which the official client recognises in tooltips) with common private-server
+> additions (verified across NiceTopia, Gurotopia, Windsverse, GTServer).
+> Treat them as conventions, not a wire-level spec.
+
+### Verified across all reference servers
 
 ```
-/help       /msg        /me         /status     /trade
-/friends    /ignore     /wave       /dance      /love
-/sleep      /facepalm   /yes        /no         /omg
-/idk        /shrug      /furious    /rolleyes   /stubborn
-/go         /home       /sethome    /who        /time
-/sb         /report     /guild      /exchange   /market
+/help    /?         /me {msg}     /sb {msg}    /who    /find {item}
+/warp {world}        /weather {id} /skin {id}   /ghost  /punch {id}
+/news    /ageworld
 ```
 
-### VIP (level 1)
+These are confirmed in Gurotopia's `cmd_pool` map (`commands/__command.cpp`).
+Most also exist in NiceTopia/Windsverse with identical syntax.
+
+### Player (level 0, retail conventions)
+
+```
+/help       /msg {name} {text}    /me {msg}      /status     /trade {name}
+/friends    /ignore {name}         /go {world}    /home       /sethome
+/who        /time                  /sb {msg}      /report     /guild
+/exchange   /market                /quit
+```
+
+Emote commands (handled by `OnAction` variant in Gurotopia):
+
+```
+/wave  /dance  /dance2  /love   /sleep    /facepalm /fp  /smh
+/yes   /no     /omg     /idk    /shrug    /furious  /rolleyes
+/foldarms /fa  /stubborn /fold  /dab      /sassy    /march
+/grumpy /shy
+```
+
+### VIP / Supporter
 
 ```
 /warp       /rainbow    /chatcolor  /inventory  /surgerys
+/ghost      /hide       /warpto     /info       /unequip   /pay
 ```
 
-### Supporter (level 10)
-
-```
-/ghost      /hide       /warpto     /renderworld  /info
-/unequip    /pay
-```
-
-### Moderator (level 11+)
+### Moderator
 
 ```
 /invis      /kick       /ban        /mute       /unmute
@@ -196,42 +215,42 @@ setSkin                 Change skin color
 /nick       /nuke       /freeze     /skin
 ```
 
-### Developer (level 21+)
+### Developer / Admin
 
 ```
 /give       /drop       /clearworld /resetworld /trashall
-/modfly     /onehit     /reloadworld
+/modfly     /onehit     /reloadworld /setitem   /giveitem
+/summonall  /copyworld  /setgems    /boostgem   /boostxp
+/changeowner /scan
 ```
 
-### Admin/Owner (level 40-50+)
-
-```
-/setitem    /giveitem   /summonall  /copyworld  /setgems
-/boostgem   /boostxp    /changeowner /scan
-```
-
-### Creator (level 111)
+### Creator (Owner)
 
 ```
 /edititem   /pasteworld /setworld   /setrole    /boost
 /rollbackworld  /rollbackplayer  /auction  /giveaway
 ```
 
+If a command in this list is not in your reference codebase, treat it as
+optional — implementing it is up to you.
+
 ---
 
 ## World Weather IDs
 
-From source (`eWorldWeather` enum, sequential starting at 0):
+Sourced from Gurotopia's `get_weather_id` switch (`include/commands/weather.cpp`)
+and the retail `eWorldWeather` enum. IDs are sequential; the table covers every
+weather machine ID confirmed in current references.
 
 ```
- 0  DEFAULT              1  SUNSET               2  NIGHT
+ 0  DEFAULT (Sunny)      1  BEACH (Sunset)       2  NIGHT
  3  ARID                 4  SUNNY                5  RAINY_CITY
  6  HARVEST_MOON         7  MARS                 8  SPOOKY
  9  GROWGANOTH          10  NOTHINGNESS          11  SNOWY
 12  GROWCH_MAD          13  GROWCH_HAPPY         14  UNDERSEA
-15  WARP                16  GREEN_COMET          17  BLUE_COMET
+15  WARP                16  GREEN_COMET          17  COMET
 18  PARTY               19  PINEAPPLE            20  SNOWY_NIGHT
-21  SPRING              22  HOWL                 23  SUNNY_V2
+21  SPRING              22  HOWL                 23  HEATWAVE_BASE
 24  HEATWAVE_P          25  HEATWAVE_R           26  HEATWAVE_G
 27  HEATWAVE_B          28  HEATWAVE_O           29  STUFF
 30  PAGODA              31  APOCALYPSE           32  JUNGLE
@@ -239,11 +258,19 @@ From source (`eWorldWeather` enum, sequential starting at 0):
 36  VALENTINE           37  ST_PADDY             38  EPOCH_ICE
 39  EPOCH_VOLCANO       40  EPOCH_LAND           41  SUNNY_V3
 42  DIGITAL_RAIN        43  MONOCHROME           44  FROZENCLIFF
-45  SURGWORLD           46  BOUNTIFUL            47  METEOR_SHOWER
-48  STARGAZING          49  ISLAND               50  RETIRED_SHIP
-51  GROWHILL            52  PVE_JUNGLE           53  LEGENDARY_LOCK
-54  BLOOD_DRAGON        55  PERSIA
+45  SURGWORLD           46  BOUNTIFUL            47  STARGAZING
+48  METEOR_SHOWER       49  ISLAND               50  RETIRED_SHIP
+51  CELEBRITY_HILLS     52  PVE_JUNGLE           53  LEGENDARY_LOCK
+54  BLOOD_DRAGON        55  PERSIA               59  PLAZA
+60  NEBULA              61  PROTOSTAR_LANDING    62  DARK_MOUNTAINS
+64  MT_GROWMORE         65  CRACK_IN_REALITY     66  NIAN_MOUNTAINS
+69  REALM_OF_SPIRITS    70  BLACK_HOLE           71  RAINING_GEMS
+72  HOLIDAY_HEAVEN      76  ATLANTIS             77  PINUSKI_HAVEN
+78  CANDYLAND           79  DRAGONS_KEEP         80  EMERALD_CITY
 ```
+
+Newer weather machines added after 5.46 may use IDs above 80 — check your
+target client build.
 
 ---
 

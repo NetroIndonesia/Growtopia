@@ -1,5 +1,12 @@
 # Game Systems
 
+> **Scope note.** Game systems below are gameplay mechanics, not protocol
+> requirements. The wire format documented in 01-04 is mandatory; the rules in
+> this file are conventions reverse-engineered from public servers (NiceTopia,
+> Windsverse, Gurotopia, GTServer). Numbers (gem amounts, drop rates, level
+> formulas) come from those sources and may differ between forks. Treat this
+> file as a reference design, not an authoritative spec.
+
 ## Farming & Splicing
 
 ### How Farming Works

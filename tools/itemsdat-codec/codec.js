@@ -3,14 +3,32 @@
 const { BinaryReader, BinaryWriter, cipherName } = require('./binary');
 
 /**
- * items.dat codec — ported directly from the proven browser-based reference decoder.
- * Supports versions up to 22 fully. For v23+, captures unknown trailing bytes.
- * 
- * IMPORTANT: This follows the EXACT field order and version checks from the reference.
- * Version checks use >= (not >).
+ * items.dat codec — ported from the proven browser-based reference decoder
+ * and cross-referenced with NiceTopia (Base.h::items_dat), WindsVerse
+ * (ItemsManager::Serialize) and Gurotopia (database/items.cpp).
+ *
+ * Supports versions up to 26 fully. For v27+ trailing bytes are captured as
+ * `_unknownTrailingData` (base64) so files round-trip byte-for-byte.
+ *
+ * IMPORTANT: Version checks use >= and the field count per version is:
+ *   v11 +(2+N)  punchOptions
+ *   v12 +13     dataVersion12     (extraSlotCounter + bodyParts[9])
+ *   v13 +4      intVersion13      (lightSourceRange)
+ *   v14 +4      intVersion14      (variantVersionItem)
+ *   v15 +25+(2+N) dataVersion15 + strVersion15 (chair*)
+ *   v16 +(2+N)  strVersion16      (configName)
+ *   v17 +4      intVersion17      (otherPlayerHitParticle)
+ *   v18 +4      intVersion18      (configNameHash)
+ *   v19 +9      dataVersion19     (randomSpriteEnabled + offsetMod + chance)
+ *   v21 +2      intVersion21      (hiddenPartsFlags + canTransform packed as uint16)
+ *   v22 +(2+N)  description
+ *   v23 +4      spliceSeed1 + spliceSeed2 (uint16 each)
+ *   v24 +1      slipperyType
+ *   v25 +(2+N)+4 strVersion25 + intVersion25 (player punch FX + reserved)
+ *   v26 +1      byteVersion26
  */
 
-const MAX_KNOWN_VERSION = 22;
+const MAX_KNOWN_VERSION = 26;
 
 function readItem(r, version) {
   const item = {};
@@ -126,6 +144,21 @@ function readItem(r, version) {
   if (version >= 22) {
     const s22Len = r.uint16();
     item.strVersion22 = r.bytes(s22Len).toString('latin1');
+  }
+  if (version >= 23) {
+    item.spliceSeed1 = r.uint16();
+    item.spliceSeed2 = r.uint16();
+  }
+  if (version >= 24) {
+    item.slipperyType = r.uint8();
+  }
+  if (version >= 25) {
+    const s25Len = r.uint16();
+    item.strVersion25 = r.bytes(s25Len).toString('latin1');
+    item.intVersion25 = r.uint32();
+  }
+  if (version >= 26) {
+    item.byteVersion26 = r.uint8();
   }
 
   return item;
@@ -250,6 +283,21 @@ function writeItem(w, item, version) {
     const s22 = Buffer.from(item.strVersion22 || '', 'latin1');
     w.uint16(s22.length); w.bytes(s22);
   }
+  if (version >= 23) {
+    w.uint16(item.spliceSeed1 || 0);
+    w.uint16(item.spliceSeed2 || 0);
+  }
+  if (version >= 24) {
+    w.uint8(item.slipperyType || 0);
+  }
+  if (version >= 25) {
+    const s25 = Buffer.from(item.strVersion25 || '', 'latin1');
+    w.uint16(s25.length); w.bytes(s25);
+    w.uint32(item.intVersion25 || 0);
+  }
+  if (version >= 26) {
+    w.uint8(item.byteVersion26 || 0);
+  }
 
   // Unknown trailing data for versions > MAX_KNOWN_VERSION
   if (item._unknownTrailingData) {
@@ -295,8 +343,9 @@ function decode(buffer) {
         }
       }
     } else if (isUnknown && i === itemCount - 1 && r.remaining > 0) {
-      item._unknownTrailingData = r.bytes(r.remaining).toString('base64');
-      item._unknownTrailingSize = r.remaining;
+      const trailingSize = r.remaining;
+      item._unknownTrailingData = r.bytes(trailingSize).toString('base64');
+      item._unknownTrailingSize = trailingSize;
     }
 
     items.push(item);

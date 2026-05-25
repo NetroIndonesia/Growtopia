@@ -25,7 +25,14 @@ ENetAddress address;
 address.host = ENET_HOST_ANY;
 address.port = 17091;
 
-ENetHost* server = enet_host_create(&address, max_peers, 2, 0, 0);
+// max_peers ~= 50 in Gurotopia, ~= 1024 in larger forks; tune for your hardware.
+ENetHost* server = enet_host_create(
+    ENET_ADDRESS_TYPE_IPV4,  // some forks use the typed overload
+    &address,
+    /* max_peers   */ 1024,
+    /* channels    */ 2,
+    /* in/out_bw   */ 0, 0);
+
 server->checksum = enet_crc32;
 enet_host_compress_with_range_coder(server);
 
@@ -33,7 +40,13 @@ enet_host_compress_with_range_coder(server);
 server->usingNewPacketForServer = 1;
 ```
 
-> You need a modified ENet library that includes the usingNewPacket / usingNewPacketForServer fields. Standard ENet from GitHub won't work. Use the ENet source from any GTPS reference project.
+Verified against Gurotopia `main.cpp` (`host = enet_host_create(...); host->usingNewPacketForServer = true; host->checksum = enet_crc32; enet_host_compress_with_range_coder(host);`).
+
+> You need a modified ENet library that includes the `usingNewPacket` /
+> `usingNewPacketForServer` fields. Stock ENet from GitHub will compile but
+> the client will silently disconnect because the new-packet flag is part of
+> Growtopia's wire protocol. Use the ENet source from any GTPS reference
+> project (Gurotopia, Windsverse, NiceTopia all bundle a compatible fork).
 
 ## Message Types
 

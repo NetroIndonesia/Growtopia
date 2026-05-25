@@ -37,19 +37,23 @@ uint32    item_count          (total items in file)
 
 ### Version ↔ Game Version Mapping
 
-| Game Version | items.dat Version |
-|-------------|-------------------|
-| 2.988 | 11 |
-| 3.45 | 12 |
-| 3.62 | 13 |
-| 3.74 | 14 |
-| 4.19 | 15 |
-| 4.44 | 16 |
-| 4.53 | 17 |
-| 4.71 | 19 |
-| 5.11 | 21 |
-| 5.46 | 25 |
-| 5.47 | 26 |
+| Game Version | items.dat Version | Notes |
+|-------------|-------------------|-------|
+| 2.988 | 11 | February 2019 |
+| 3.45 | 12 | October 2020 |
+| 3.62 | 13 | May 2021 |
+| 3.74 | 14 | October 2021 |
+| 4.19 | 15 | |
+| 4.44 | 16 | |
+| 4.53 | 17 | April 2024 |
+| 4.61 | 18 | December 2024 |
+| 4.71 | 19 | |
+| 5.11 | 21 | |
+| 5.20 | 22 | description field added |
+| 5.30 | 23 | splice seeds added (September 2025) |
+| 5.40 | 24 | slipperyType added |
+| 5.46 | 25 | player punch FX string + reserved int (December 2025) |
+| 5.47 | 26 | extra trailing byte |
 
 ## Per-Item Fields (Base — All Versions)
 
